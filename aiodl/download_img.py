@@ -68,6 +68,11 @@ whether downloaded images are valid or not,
 but it takes more time.
 """,
     )
+    parser.add_argument(
+        "-f", "--force",
+        action="store_true",
+        help="force to overwrite"
+    )
     args = parser.parse_args()
 
     download_files(**vars(args))
@@ -75,17 +80,18 @@ but it takes more time.
 
 def download_files(
         url_file, out_dir, error_url_file,
-        n_requests, timeout, check_image):
+        n_requests, timeout, check_image, force):
 
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
     else:
-        overwrite = input(
-            '{} already exists. Overwite? [y/n]: '.
-            format(out_dir)) in ['y', 'yes']
-        if not overwrite:
-            print('Canceled.')
-            sys.exit()
+        if not force:
+            overwrite = input(
+                '{} already exists. Overwite? [y/n]: '.
+                format(out_dir)) in ['y', 'yes']
+            if not overwrite:
+                print('Canceled.')
+                sys.exit()
 
     df = pd.read_csv(url_file, header=None)
 
