@@ -2,94 +2,79 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+from argparse import RawTextHelpFormatter
 import asyncio
+from datetime import datetime
 import os
 import sys
 
 import aiohttp
 import numpy as np
+import pandas as pd
 from PIL import Image
 from tqdm import tqdm
 
 
-def write_to_file(file, content):
-    """ get content and write it to file
+def main():
+    parser = argparse.ArgumentParser(
+        formatter_class=RawTextHelpFormatter)
+    parser.add_argument(
+        "url_file",
+        help="""a text file where urls are listed.
+e.g.,
 
-    Args:
-        file ([type]): [description]
-        content ([type]): [description]
-    """
+http://example/0000001.jpg
+http://example/0000002.jpg
+http://example/0000003.jpg
 
-    with open(file, 'wb') as f:
-        f.write(content)
+or two columns
 
+<urls>,                    <out filenames>
 
-async def read_img(img_file):
-    pil_img = Image.open(img_file).convert('RGB')
-    img = np.array(pil_img).astype(np.float32)
-    # (3, h, w) <- (h, w, 3)
-    img = img.transpose(2, 0, 1)
+http://example/0000001.jpg,out-name-001.jpg
+http://example/0000002.jpg,out-name-002.jpg
+http://example/0000003.jpg,out-name-003.jpg
 
-    return img
+If you doesn't designate out filenames,
+the basename of urls are used as their filenames.
+"""
+    )
+    parser.add_argument(
+        "-o", "--out_dir",
+        default='./downloaded'
+    )
+    parser.add_argument(
+        "-e", "--error_url_file",
+        default='./error_urls-{}.txt'.format(
+            datetime.now().strftime('%s')),
+    )
+    parser.add_argument(
+        "-r", "--n_requests",
+        type=int,
+        default=100,
+    )
+    parser.add_argument(
+        "-t", "--timeout",
+        type=int,
+        default=180,
+        help="The unit is second."
+    )
+    parser.add_argument(
+        "-c", "--check_image",
+        action='store_true',
+        help="""If this is True, simultaneously check
+whether downloaded images are valid or not,
+but it takes more time.
+""",
+    )
+    args = parser.parse_args()
 
-
-async def get(*args, **kwargs):
-    """a helper coroutine to perform GET requests:
-    """
-    async with aiohttp.ClientSession() as session:
-        try:
-            async with session.get(*args, **kwargs) as res:
-                tqdm.write('{}'.format(res.status))
-                return await res.content.read()
-        except Exception as e:
-            tqdm.write('{}'.format(e))
-            return None
-
-
-async def download_file(url, out_file, error_url_file, sem):
-    # this routine is protected by a semaphore
-    with await sem:
-        timeout = aiohttp.ClientTimeout(total=180)
-        content = await get(url, timeout=timeout)
-        out_name = os.path.basename(out_file)
-
-        if content is not None:
-            write_to_file(out_file, content)
-            if not await check_img(out_file):
-                with open(error_url_file, 'a') as f:
-                    f.write('{},{}\n'.format(url, out_name))
-        else:
-            tqdm.write('Download Error: {}'.format(out_name))
-            with open(error_url_file, 'a') as f:
-                f.write('{},{}\n'.format(url, out_name))
-
-
-async def check_img(img_file):
-    img_name = os.path.basename(img_file)
-    try:
-        _ = await read_img(img_file)
-        return True
-    except Exception as e:
-        # import traceback
-        # traceback.print_exc()
-        tqdm.write(img_name+': {}'.format(e))
-        return False
-        # return img_name + '\n'
+    download_files(**vars(args))
 
 
-async def wait_with_progressbar(coros):
-    '''
-    make nice progressbar
-    install it by using `pip install tqdm`
-    '''
-    coros = [await f
-             for f in tqdm(asyncio.as_completed(coros), total=len(coros))]
-    return coros
-
-
-def download(
-        url_file, out_dir, out_name_file, error_url_file,
-        n_requests):
+def download_files(
+        url_file, out_dir, error_url_file,
+        n_requests, timeout, check_image):
 
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
@@ -101,69 +86,105 @@ def download(
             print('Canceled.')
             sys.exit()
 
-    with open(url_file) as f:
-        urls = f.read().splitlines()
+    df = pd.read_csv(url_file, header=None)
 
-    if out_name_file is None:
-        out_files = [
-            os.path.join(
-                out_dir,
-                os.path.basename(url)
-            ) for url in urls
-        ]
+    urls = df[0].tolist()
+
+    if len(df.columns) != 2:
+        out_names = [os.path.basename(url) for url in urls]
     else:
-        with open(out_name_file) as f:
-            out_files = [
-                os.path.join(out_dir, out_name)
-                for out_name in f.read().splitlines()
-            ]
+        out_names = df[1].tolist()
 
     # avoid to many requests(coros) the same time.
     # limit them by setting semaphores (simultaneous requests)
     sem = asyncio.Semaphore(n_requests)
 
-    coros = [download_file(url, out_file, error_url_file, sem)
-             for url, out_file in zip(urls, out_files)]
+    coros = [
+        download_file(
+            url, out_dir, out_name, error_url_file,
+            sem, timeout, check_image)
+        for url, out_name in zip(urls, out_names)]
     eloop = asyncio.get_event_loop()
     # eloop.run_until_complete(asyncio.wait(coros))
     eloop.run_until_complete(wait_with_progressbar(coros))
     eloop.close()
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "url_file",
-        # e.g., 
-        # 
-        # http://example/0000001.jpg
-        # http://example/0000002.jpg
-        # http://example/0000003.jpg
-    )
-    parser.add_argument(
-        "-n", "--out_name_file",
-        # e.g., 
-        # 
-        # 0000001.jpg
-        # 0000002.jpg
-        # 0000003.jpg
-    )
-    parser.add_argument(
-        "-o", "--out_dir",
-        default='./downloaded'
-    )
-    parser.add_argument(
-        "-e", "--error_url_file",
-        default='./error_urls.txt'
-    )
-    parser.add_argument(
-        "-r", "--n_requests",
-        type=int,
-        default=100,
-    )
-    args = parser.parse_args()
+async def download_file(
+        url, out_dir, out_name, error_url_file,
+        sem, timeout, check_image):
+    # this routine is protected by a semaphore
+    with await sem:
+        timeout_ = aiohttp.ClientTimeout(total=timeout)
+        content = await get(
+            url, out_name, error_url_file,
+            timeout=timeout_)
+        out_file = os.path.join(out_dir, out_name)
 
-    download(**vars(args))
+        if content is not None:
+            write_to_file(out_file, content)
+            if check_image:
+                await _check_img(out_file, url, out_name, error_url_file)
+        # else:
+        #     e = 'Response is None'
+        #     tqdm.write('{}: {}'.format(out_name, e))
+        #     with open(error_url_file, 'a') as f:
+        #         f.write('{},{},{}\n'.format(url, out_name, e))
+
+
+async def get(url, out_name, error_url_file, *args, **kwargs):
+    """a helper coroutine to perform GET requests:
+    """
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url, *args, **kwargs) as res:
+                tqdm.write('{}: {}'.format(out_name, res.status))
+                return await res.content.read()
+        except Exception as e:
+            tqdm.write('{}: {}'.format(out_name, e))
+            with open(error_url_file, 'a') as f:
+                f.write('{},{},{}\n'.format(url, out_name, e))
+            return None
+
+
+def write_to_file(out_file, content):
+    """ get content and write it to file
+
+    Args:
+        out_file ([type]): [description]
+        content ([type]): [description]
+    """
+
+    with open(out_file, 'wb') as f:
+        f.write(content)
+
+
+async def _check_img(img_file, url, img_name, error_url_file):
+    try:
+        _ = await read_img(img_file)
+    except Exception as e:
+        tqdm.write('{}: {}'.format(img_name, e))
+        with open(error_url_file, 'a') as f:
+            f.write('{},{},{}\n'.format(url, img_name, e))
+
+
+async def read_img(img_file):
+    pil_img = Image.open(img_file).convert('RGB')
+    img = np.array(pil_img).astype(np.float32)
+    # (3, h, w) <- (h, w, 3)
+    img = img.transpose(2, 0, 1)
+
+    return img
+
+
+async def wait_with_progressbar(coros):
+    '''
+    make nice progressbar
+    install it by using `pip install tqdm`
+    '''
+    coros = [await f
+             for f in tqdm(asyncio.as_completed(coros), total=len(coros))]
+    return coros
 
 
 if __name__ == "__main__":
