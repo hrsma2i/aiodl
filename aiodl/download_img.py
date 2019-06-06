@@ -41,7 +41,8 @@ the basename of urls are used as their filenames.
     )
     parser.add_argument(
         "-o", "--out_dir",
-        default='./downloaded'
+        default='./download-{}'.format(
+            datetime.now().strftime('%s')),
     )
     parser.add_argument(
         "-e", "--error_url_file",
