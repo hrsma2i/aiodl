@@ -29,7 +29,7 @@ http://example/0000002.jpg,out-name-002.jpg
 http://example/0000003.jpg,out-name-003.jpg
 ```
 
-If you doesn't designate out filenames (single column),
+If you don't designate out filenames (single column),
 the basename of urls are used as their filenames.
 e.g, if the url is `http://example/0000003.jpg`, the out filename is `0000003.jpg`.
 
@@ -51,7 +51,7 @@ You can try to download them again, using the error url file as a new `url_file.
 
 ### Check Image Health
 
-It sometimes happen that some downloaded images are invalid.
+It sometimes happens that some downloaded images are invalid.
 e.g., can't read the images using a image library `PIL`.
 
 If you take the option `-c`, `--check_image`,
