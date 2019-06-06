@@ -20,7 +20,7 @@ def main():
         formatter_class=RawTextHelpFormatter)
     parser.add_argument(
         "url_file",
-        help="""a text file where urls are listed.
+        help="""a csv file where urls are listed.
 e.g.,
 
 http://example/0000001.jpg
@@ -46,7 +46,7 @@ the basename of urls are used as their filenames.
     )
     parser.add_argument(
         "-e", "--error_url_file",
-        default='./error_urls-{}.txt'.format(
+        default='./error_urls-{}.csv'.format(
             datetime.now().strftime('%s')),
     )
     parser.add_argument(

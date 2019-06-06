@@ -3,12 +3,12 @@
 ## Usage
 
 ```
-$ aiodl url_file.txt
+$ aiodl url_file.csv
 ```
 
-### Format of url_file.txt
+### Format of url_file.csv
 
-The format of `url_file.txt` is:
+The format of `url_file.csv` is:
 
 e.g.,
 
@@ -47,7 +47,7 @@ http://example/0000003.jpg,out-name-003.jpg,Error Description
 If `-t`, `--timeout` option is small,
 it is possible that some images aren't downloaded.
 The not downloaded images will be listed in an error url file.
-You can try to download them again, using the error url file as a new `url_file.txt`.
+You can try to download them again, using the error url file as a new `url_file.csv`.
 
 ### Check Image Health
 
