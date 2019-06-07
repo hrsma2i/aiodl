@@ -97,7 +97,7 @@ def download_files(
 
     urls = df[0].tolist()
 
-    if len(df.columns) != 2:
+    if len(df.columns) == 1:
         out_names = [os.path.basename(url) for url in urls]
     else:
         out_names = df[1].tolist()
