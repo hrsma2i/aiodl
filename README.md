@@ -1,5 +1,13 @@
 # aiodl - Async I/O Downloader
 
+## Installation
+
+```
+$ git clone https://github.com/hrsma2i/aiodl.git
+$ cd aiodl
+$ pip install -e .
+```
+
 ## Usage
 
 ```
