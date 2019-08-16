@@ -50,6 +50,10 @@ the basename of urls are used as their filenames.
             datetime.now().strftime('%s')),
     )
     parser.add_argument(
+        "-d", "--delimiter",
+        default=',',
+    )
+    parser.add_argument(
         "-r", "--n_requests",
         type=int,
         default=100,
@@ -79,7 +83,7 @@ but it takes more time.
 
 
 def download_files(
-        url_file, out_dir, error_url_file,
+        url_file, out_dir, error_url_file, delimiter,
         n_requests, timeout, check_image, force):
 
     if not os.path.isdir(out_dir):
@@ -93,7 +97,7 @@ def download_files(
                 print('Canceled.')
                 sys.exit()
 
-    df = pd.read_csv(url_file, header=None)
+    df = pd.read_csv(url_file, header=None, sep=delimiter)
 
     urls = df[0].tolist()
 
