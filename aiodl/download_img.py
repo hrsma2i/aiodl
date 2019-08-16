@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import csv
+import codecs
 import argparse
 from argparse import RawTextHelpFormatter
 import asyncio
@@ -52,6 +54,7 @@ the basename of urls are used as their filenames.
     parser.add_argument(
         "-d", "--delimiter",
         default=',',
+        type=lambda sep: codecs.decode(str(sep), 'unicode_escape'),
     )
     parser.add_argument(
         "-r", "--n_requests",
@@ -112,7 +115,7 @@ def download_files(
 
     coros = [
         download_file(
-            url, out_dir, out_name, error_url_file,
+            url, out_dir, out_name, error_url_file, delimiter,
             sem, timeout, check_image)
         for url, out_name in zip(urls, out_names)]
     eloop = asyncio.get_event_loop()
@@ -122,20 +125,20 @@ def download_files(
 
 
 async def download_file(
-        url, out_dir, out_name, error_url_file,
+        url, out_dir, out_name, error_url_file, sep,
         sem, timeout, check_image):
     # this routine is protected by a semaphore
     with await sem:
         timeout_ = aiohttp.ClientTimeout(total=timeout)
         content = await get(
-            url, out_name, error_url_file,
+            url, out_name, error_url_file, sep,
             timeout=timeout_)
         out_file = os.path.join(out_dir, out_name)
 
         if content is not None:
             write_to_file(out_file, content)
             if check_image:
-                await _check_img(out_file, url, out_name, error_url_file)
+                await _check_img(out_file, url, out_name, error_url_file, sep)
         # else:
         #     e = 'Response is None'
         #     tqdm.write('{}: {}'.format(out_name, e))
@@ -143,7 +146,7 @@ async def download_file(
         #         f.write('{},{},{}\n'.format(url, out_name, e))
 
 
-async def get(url, out_name, error_url_file, *args, **kwargs):
+async def get(url, out_name, error_url_file, sep, *args, **kwargs):
     """a helper coroutine to perform GET requests:
     """
     async with aiohttp.ClientSession() as session:
@@ -154,7 +157,8 @@ async def get(url, out_name, error_url_file, *args, **kwargs):
         except Exception as e:
             tqdm.write('{}: {}'.format(out_name, e))
             with open(error_url_file, 'a') as f:
-                f.write('{},{},{}\n'.format(url, out_name, e))
+                writer = csv.writer(f, delimiter=sep)
+                writer.writerow([url, out_name, e])
             return None
 
 
@@ -170,13 +174,14 @@ def write_to_file(out_file, content):
         f.write(content)
 
 
-async def _check_img(img_file, url, img_name, error_url_file):
+async def _check_img(img_file, url, img_name, error_url_file, sep):
     try:
         _ = await read_img(img_file)
     except Exception as e:
         tqdm.write('{}: {}'.format(img_name, e))
         with open(error_url_file, 'a') as f:
-            f.write('{},{},{}\n'.format(url, img_name, e))
+            writer = csv.writer(f, delimiter=sep)
+            writer.writerow([url, img_name, e])
 
 
 async def read_img(img_file):
