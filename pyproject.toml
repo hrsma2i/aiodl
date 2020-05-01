@@ -8,21 +8,23 @@ authors = ["hrsma2i <hrs.ma2i@gmail.com>"]
 python = "^3.6"
 mypy = "^0.761.0"
 flake8 = "^3.7"
-black = {version = "^18.3-alpha.0", allows-prereleases = true}
 pillow = "^6.2"
 asyncio = "^3.4"
 aiohttp = "^3.6"
 tqdm = "^4.41"
 pandas = "^0.25.3"
 numpy = "^1.18"
+black = "^19.10b0"
 [tool.poetry.dev-dependencies]
 jupyter = "^1.0"
 mypy = "^0.761.0"
 flake8 = "^3.7"
+black = "^19.10b0"
+
+[tool.poetry.scripts]
+aiodl = "aiodl.download_img:main"
 
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
 
-[tool.poetry.scripts]
-aiodl = "aiodl.download_img:main"
