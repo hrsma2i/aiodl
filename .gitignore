@@ -4,3 +4,4 @@
 *.egg-info
 playground
 .python-version
+.mypy_cache
