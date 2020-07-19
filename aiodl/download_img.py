@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import codecs
-import argparse
-from argparse import RawTextHelpFormatter
 import asyncio
 from datetime import datetime
 import os
@@ -12,6 +9,7 @@ from logging import getLogger, INFO, StreamHandler
 
 import aiohttp
 import pandas as pd
+import typer
 
 from aiodl.log_json_formatter import CustomJsonFormatter
 
@@ -24,12 +22,7 @@ formatter = CustomJsonFormatter()
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-
-def main():
-    parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
-    parser.add_argument(
-        "url_file",
-        help="""a csv file where urls are listed.
+URL_CSV_HELP = """a csv file where urls are listed.
 e.g.,
 
 http://example/0000001.jpg
@@ -46,29 +39,25 @@ http://example/0000003.jpg,out-name-003.jpg
 
 If you doesn't designate out filenames,
 the basename of urls are used as their filenames.
-""",
-    )
-    parser.add_argument(
-        "-o", "--out_dir", default="./download-{}".format(datetime.now().strftime("%s"))
-    )
-    parser.add_argument(
-        "-d",
-        "--delimiter",
-        default=",",
-        type=lambda sep: codecs.decode(str(sep), "unicode_escape"),
-    )
-    parser.add_argument("-r", "--n_requests", type=int, default=100)
-    parser.add_argument(
-        "-t", "--timeout", type=int, default=180, help="The unit is second."
-    )
-    parser.add_argument("-f", "--force", action="store_true", help="force to overwrite")
-    args = parser.parse_args()
-
-    download_files(**vars(args))
+"""
 
 
-def download_files(url_file, out_dir, delimiter, n_requests, timeout, force):
+def run_with_typer():
+    typer.run(main)
 
+
+def main(
+    url_file: str = typer.Argument(..., help=URL_CSV_HELP),
+    out_dir: str = typer.Option(
+        datetime.now().strftime("download-%Y-%m-%d-%H-%M-%S"),
+        "-o",
+        help="Output directory",
+    ),
+    delimiter: str = typer.Option(",", "-d", help="Delimiter"),
+    n_requests: int = typer.Option(100, "-r", help="Number of requests"),
+    timeout: int = typer.Option(180, "-t", help="Timeout(sec)"),
+    force: bool = typer.Option(False, "-f", help="Force to overwrite"),
+):
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
     else:
@@ -136,7 +125,3 @@ def write_to_file(out_file, content):
 
     with open(out_file, "wb") as f:
         f.write(content)
-
-
-if __name__ == "__main__":
-    main()
