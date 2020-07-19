@@ -138,5 +138,14 @@ class Downloader:
                 return await res.content.read()
 
     def write(self, out_file: Path, content: bytes):
+        """
+
+        Args:
+            out_file (Path): [description]
+            content (bytes): [description]
+
+        NOTE: asyncio doesn't support file I/O.
+        aiofile is slower than sync file writing.
+        """
         with out_file.open("wb") as f:
             f.write(content)
