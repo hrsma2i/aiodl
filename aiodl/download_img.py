@@ -153,13 +153,13 @@ async def download_file(
 async def get(url, out_name, error_url_file, sep, *args, **kwargs):
     """a helper coroutine to perform GET requests:
     """
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(raise_for_status=True) as session:
         try:
             async with session.get(url, *args, **kwargs) as res:
-                logger.info({"out_name": out_name, "response_status": res.status})
+                logger.info({"out_name": out_name})
                 return await res.content.read()
         except Exception as e:
-            logger.error("{}: {}".format(out_name, e))
+            logger.error({"out_name": out_name, "error": e})
             with open(error_url_file, "a") as f:
                 writer = csv.writer(f, delimiter=sep)
                 writer.writerow([url, out_name, e])
