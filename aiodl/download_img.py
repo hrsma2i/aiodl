@@ -9,15 +9,23 @@ import asyncio
 from datetime import datetime
 import os
 import sys
-from logging import getLogger, basicConfig, INFO
-
-basicConfig(level=INFO)
-logger = getLogger(__name__)
+from logging import getLogger, INFO, StreamHandler
 
 import aiohttp
 import numpy as np
 import pandas as pd
 from PIL import Image
+
+from aiodl.log_json_formatter import CustomJsonFormatter
+
+
+logger = getLogger(__name__)
+logger.setLevel(INFO)
+
+handler = StreamHandler()
+formatter = CustomJsonFormatter()
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 def main():
@@ -148,7 +156,7 @@ async def get(url, out_name, error_url_file, sep, *args, **kwargs):
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, *args, **kwargs) as res:
-                logger.info("{}: {}".format(out_name, res.status))
+                logger.info({"out_name": out_name, "response_status": res.status})
                 return await res.content.read()
         except Exception as e:
             logger.error("{}: {}".format(out_name, e))

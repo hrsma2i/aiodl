@@ -12,6 +12,7 @@ aiohttp = "^3.6"
 tqdm = "^4.41"
 pandas = "^0.25.3"
 numpy = "^1.18"
+python-json-logger = "^0.1.11"
 [tool.poetry.dev-dependencies]
 jupyter = "^1.0"
 mypy = "^0.761.0"
