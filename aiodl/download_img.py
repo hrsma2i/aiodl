@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from time import time
 import asyncio
 from datetime import datetime
 from logging import getLogger, INFO, StreamHandler
 from pathlib import Path
+from typing import Dict
 
 import aiohttp
 import pandas as pd
@@ -95,30 +97,40 @@ class Downloader:
         self.timeout_ = aiohttp.ClientTimeout(total=timeout)
         self.total = total
 
-        self.count = 0
+        self._count = 0
 
-    async def download(self, url, out_name):
+    @property
+    def _throughput(self):
+        elapsed = time() - self._start
+        return self._count / elapsed
+
+    def _log_dict(self, out_name: str, extra: Dict = {}):
+        return {
+            **{
+                "count": self._count,
+                "total": self.total,
+                "throughput": self._throughput,
+                "out_name": out_name,
+            },
+            **extra,
+        }
+
+    async def download(self, url: str, out_name: str):
         # this routine is protected by a semaphore
+        if self._count == 0:
+            self._start = time()
+
         with await self.sem:
             try:
                 content = await self.get(url, out_name, timeout=self.timeout_)
 
                 self.write(self.out_dir / out_name, content)
 
-                self.count += 1
-                logger.info(
-                    {"count": self.count, "total": self.total, "out_name": out_name}
-                )
+                self._count += 1
+                logger.info(self._log_dict(out_name))
             except Exception as e:
-                self.count += 1
-                logger.error(
-                    {
-                        "count": self.count,
-                        "total": self.total,
-                        "out_name": out_name,
-                        "error": e,
-                    }
-                )
+                self._count += 1
+                logger.error(self._log_dict(out_name, extra={"error": e}))
 
     async def get(self, url, out_name, *args, **kwargs):
         async with aiohttp.ClientSession(raise_for_status=True) as session:
