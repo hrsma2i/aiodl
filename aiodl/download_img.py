@@ -57,6 +57,7 @@ def main(
     delimiter: str = typer.Option(",", "-d", help="Delimiter"),
     num_requests: int = typer.Option(100, "-r", help="Number of requests"),
     timeout: int = typer.Option(180, "-t", help="Timeout(sec)"),
+    max_retry: int = typer.Option(3, "-m", help="Max retry"),
     add: bool = typer.Option(False, "-a", help="Add files to the existing directory."),
 ):
     if not out_dir.is_dir():
@@ -78,7 +79,11 @@ def main(
         out_names = df[1].tolist()
 
     downloader = Downloader(
-        out_dir=out_dir, num_requests=num_requests, timeout=timeout, total=len(urls)
+        out_dir=out_dir,
+        num_requests=num_requests,
+        timeout=timeout,
+        total=len(urls),
+        max_retry=max_retry,
     )
     coros = [
         downloader.download(url, out_name) for url, out_name in zip(urls, out_names)
@@ -89,13 +94,16 @@ def main(
 
 
 class Downloader:
-    def __init__(self, out_dir: Path, num_requests: int, timeout: int, total: int):
+    def __init__(
+        self, out_dir: Path, num_requests: int, timeout: int, total: int, max_retry: int
+    ):
         self.out_dir = out_dir
         # avoid to many requests(coros) the same time.
         # limit them by setting semaphores (simultaneous requests)
         self.sem = asyncio.Semaphore(num_requests)
         self.timeout_ = aiohttp.ClientTimeout(total=timeout)
         self.total = total
+        self.max_retry = max_retry
 
         self._count = 0
 
@@ -104,8 +112,8 @@ class Downloader:
         elapsed = time() - self._start
         return self._count / elapsed
 
-    def _log_dict(self, out_name: str, extra: Dict = {}):
-        return {
+    def _log_dict(self, out_name: str, num_retry: int = 0, extra: Dict = {}):
+        d = {
             **{
                 "count": self._count,
                 "total": self.total,
@@ -114,8 +122,11 @@ class Downloader:
             },
             **extra,
         }
+        if num_retry > 0:
+            d["retry"] = num_retry
+        return d
 
-    async def download(self, url: str, out_name: str):
+    async def download(self, url: str, out_name: str, num_retry: int = 0):
         # this routine is protected by a semaphore
         if self._count == 0:
             self._start = time()
@@ -128,6 +139,20 @@ class Downloader:
 
                 self._count += 1
                 logger.info(self._log_dict(out_name))
+            except aiohttp.ClientResponseError as e:
+                if num_retry < self.max_retry and e.status not in [403]:
+                    self._count += 1
+
+                logger.error(
+                    self._log_dict(
+                        out_name,
+                        num_retry=num_retry,
+                        extra={"retry": num_retry, "error": e},
+                    )
+                )
+
+                if num_retry < self.max_retry:
+                    await self.download(url, out_name, num_retry + 1)
             except Exception as e:
                 self._count += 1
                 logger.error(self._log_dict(out_name, extra={"error": e}))
