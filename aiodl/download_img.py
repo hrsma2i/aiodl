@@ -3,7 +3,7 @@
 
 from time import time
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from logging import getLogger, INFO, StreamHandler
 from pathlib import Path
 from typing import Dict
@@ -107,21 +107,25 @@ class Downloader:
 
         self._count = 0
 
-    @property
-    def _throughput(self):
-        elapsed = time() - self._start
-        return self._count / elapsed
-
     def _log_dict(self, out_name: str, num_retry: int = 0, extra: Dict = {}):
+        elapsed = time() - self._start
+        throughput = self._count / elapsed
         d = {
             **{
                 "count": self._count,
                 "total": self.total,
-                "throughput": self._throughput,
+                "progress": f"{int(self._count / self.total * 100)}%",
+                "throughput": throughput,
                 "out_name": out_name,
             },
             **extra,
         }
+
+        if throughput > 0:
+            d["remaining"] = str(
+                timedelta(seconds=(self.total - self._count) / throughput)
+            )
+
         if num_retry > 0:
             d["retry"] = num_retry
         return d
