@@ -9,12 +9,15 @@ import asyncio
 from datetime import datetime
 import os
 import sys
+from logging import getLogger, basicConfig, INFO
+
+basicConfig(level=INFO)
+logger = getLogger(__name__)
 
 import aiohttp
 import numpy as np
 import pandas as pd
 from PIL import Image
-from tqdm import tqdm
 
 
 def main():
@@ -115,8 +118,7 @@ def download_files(
         for url, out_name in zip(urls, out_names)
     ]
     eloop = asyncio.get_event_loop()
-    # eloop.run_until_complete(asyncio.wait(coros))
-    eloop.run_until_complete(wait_with_progressbar(coros))
+    eloop.run_until_complete(asyncio.wait(coros))
     eloop.close()
 
 
@@ -146,10 +148,10 @@ async def get(url, out_name, error_url_file, sep, *args, **kwargs):
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, *args, **kwargs) as res:
-                tqdm.write("{}: {}".format(out_name, res.status))
+                logger.info("{}: {}".format(out_name, res.status))
                 return await res.content.read()
         except Exception as e:
-            tqdm.write("{}: {}".format(out_name, e))
+            logger.error("{}: {}".format(out_name, e))
             with open(error_url_file, "a") as f:
                 writer = csv.writer(f, delimiter=sep)
                 writer.writerow([url, out_name, e])
@@ -172,7 +174,7 @@ async def _check_img(img_file, url, img_name, error_url_file, sep):
     try:
         _ = await read_img(img_file)
     except Exception as e:
-        tqdm.write("{}: {}".format(img_name, e))
+        logger.error("{}: {}".format(img_name, e))
         with open(error_url_file, "a") as f:
             writer = csv.writer(f, delimiter=sep)
             writer.writerow([url, img_name, e])
@@ -185,15 +187,6 @@ async def read_img(img_file):
     img = img.transpose(2, 0, 1)
 
     return img
-
-
-async def wait_with_progressbar(coros):
-    """
-    make nice progressbar
-    install it by using `pip install tqdm`
-    """
-    coros = [await f for f in tqdm(asyncio.as_completed(coros), total=len(coros))]
-    return coros
 
 
 if __name__ == "__main__":
