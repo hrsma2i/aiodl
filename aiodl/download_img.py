@@ -4,8 +4,8 @@
 import asyncio
 from datetime import datetime
 import os
-import sys
 from logging import getLogger, INFO, StreamHandler
+from pathlib import Path
 
 import aiohttp
 import pandas as pd
@@ -47,8 +47,8 @@ def run_with_typer():
 
 
 def main(
-    url_file: str = typer.Argument(..., help=URL_CSV_HELP),
-    out_dir: str = typer.Option(
+    url_file: Path = typer.Argument(..., help=URL_CSV_HELP),
+    out_dir: Path = typer.Option(
         datetime.now().strftime("download-%Y-%m-%d-%H-%M-%S"),
         "-o",
         help="Output directory",
@@ -56,25 +56,23 @@ def main(
     delimiter: str = typer.Option(",", "-d", help="Delimiter"),
     n_requests: int = typer.Option(100, "-r", help="Number of requests"),
     timeout: int = typer.Option(180, "-t", help="Timeout(sec)"),
-    force: bool = typer.Option(False, "-f", help="Force to overwrite"),
+    add: bool = typer.Option(False, "-a", help="Add files to the existing directory."),
 ):
-    if not os.path.isdir(out_dir):
-        os.makedirs(out_dir)
+    if not out_dir.is_dir():
+        out_dir.mkdir(parents=True)
     else:
-        if not force:
-            overwrite = input(
-                "{} already exists. Overwite? [y/n]: ".format(out_dir)
-            ) in ["y", "yes"]
-            if not overwrite:
-                print("Canceled.")
-                sys.exit()
+        if add:
+            logger.info(f"add to {out_dir} that has already exists")
+            pass
+        else:
+            raise OSError(f"out_dir={out_dir} has already exists")
 
     df = pd.read_csv(url_file, header=None, sep=delimiter)
 
     urls = df[0].tolist()
 
     if len(df.columns) == 1:
-        out_names = [os.path.basename(url) for url in urls]
+        out_names = [url.split("/")[-1] for url in urls]
     else:
         out_names = df[1].tolist()
 
@@ -96,7 +94,7 @@ async def download_file(url, out_dir, out_name, sem, timeout):
     with await sem:
         timeout_ = aiohttp.ClientTimeout(total=timeout)
         content = await get(url, out_name, timeout=timeout_)
-        out_file = os.path.join(out_dir, out_name)
+        out_file = out_dir / out_name
 
         if content is not None:
             write_to_file(out_file, content)
