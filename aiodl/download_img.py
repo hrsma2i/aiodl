@@ -95,21 +95,19 @@ class Downloader:
     async def download(self, url, out_name):
         # this routine is protected by a semaphore
         with await self.sem:
-            content = await self.get(url, out_name, timeout=self.timeout_)
-            out_file = self.out_dir / out_name
+            try:
+                content = await self.get(url, out_name, timeout=self.timeout_)
 
-            if content is not None:
-                self.write(out_file, content)
+                self.write(self.out_dir / out_name, content)
+
+                logger.info({"out_name": out_name})
+            except Exception as e:
+                logger.error({"out_name": out_name, "error": e})
 
     async def get(self, url, out_name, *args, **kwargs):
         async with aiohttp.ClientSession(raise_for_status=True) as session:
-            try:
-                async with session.get(url, *args, **kwargs) as res:
-                    logger.info({"out_name": out_name})
-                    return await res.content.read()
-            except Exception as e:
-                logger.error({"out_name": out_name, "error": e})
-                return None
+            async with session.get(url, *args, **kwargs) as res:
+                return await res.content.read()
 
     def write(self, out_file: Path, content: bytes):
         with out_file.open("wb") as f:
