@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import csv
 import codecs
 import argparse
 from argparse import RawTextHelpFormatter
@@ -12,9 +11,7 @@ import sys
 from logging import getLogger, INFO, StreamHandler
 
 import aiohttp
-import numpy as np
 import pandas as pd
-from PIL import Image
 
 from aiodl.log_json_formatter import CustomJsonFormatter
 
@@ -55,11 +52,6 @@ the basename of urls are used as their filenames.
         "-o", "--out_dir", default="./download-{}".format(datetime.now().strftime("%s"))
     )
     parser.add_argument(
-        "-e",
-        "--error_url_file",
-        default="./error_urls-{}.csv".format(datetime.now().strftime("%s")),
-    )
-    parser.add_argument(
         "-d",
         "--delimiter",
         default=",",
@@ -69,31 +61,13 @@ the basename of urls are used as their filenames.
     parser.add_argument(
         "-t", "--timeout", type=int, default=180, help="The unit is second."
     )
-    parser.add_argument(
-        "-c",
-        "--check_image",
-        action="store_true",
-        help="""If this is True, simultaneously check
-whether downloaded images are valid or not,
-but it takes more time.
-""",
-    )
     parser.add_argument("-f", "--force", action="store_true", help="force to overwrite")
     args = parser.parse_args()
 
     download_files(**vars(args))
 
 
-def download_files(
-    url_file,
-    out_dir,
-    error_url_file,
-    delimiter,
-    n_requests,
-    timeout,
-    check_image,
-    force,
-):
+def download_files(url_file, out_dir, delimiter, n_requests, timeout, force):
 
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
@@ -120,9 +94,7 @@ def download_files(
     sem = asyncio.Semaphore(n_requests)
 
     coros = [
-        download_file(
-            url, out_dir, out_name, error_url_file, delimiter, sem, timeout, check_image
-        )
+        download_file(url, out_dir, out_name, sem, timeout)
         for url, out_name in zip(urls, out_names)
     ]
     eloop = asyncio.get_event_loop()
@@ -130,27 +102,18 @@ def download_files(
     eloop.close()
 
 
-async def download_file(
-    url, out_dir, out_name, error_url_file, sep, sem, timeout, check_image
-):
+async def download_file(url, out_dir, out_name, sem, timeout):
     # this routine is protected by a semaphore
     with await sem:
         timeout_ = aiohttp.ClientTimeout(total=timeout)
-        content = await get(url, out_name, error_url_file, sep, timeout=timeout_)
+        content = await get(url, out_name, timeout=timeout_)
         out_file = os.path.join(out_dir, out_name)
 
         if content is not None:
             write_to_file(out_file, content)
-            if check_image:
-                await _check_img(out_file, url, out_name, error_url_file, sep)
-        # else:
-        #     e = 'Response is None'
-        #     tqdm.write('{}: {}'.format(out_name, e))
-        #     with open(error_url_file, 'a') as f:
-        #         f.write('{},{},{}\n'.format(url, out_name, e))
 
 
-async def get(url, out_name, error_url_file, sep, *args, **kwargs):
+async def get(url, out_name, *args, **kwargs):
     """a helper coroutine to perform GET requests:
     """
     async with aiohttp.ClientSession(raise_for_status=True) as session:
@@ -160,9 +123,6 @@ async def get(url, out_name, error_url_file, sep, *args, **kwargs):
                 return await res.content.read()
         except Exception as e:
             logger.error({"out_name": out_name, "error": e})
-            with open(error_url_file, "a") as f:
-                writer = csv.writer(f, delimiter=sep)
-                writer.writerow([url, out_name, e])
             return None
 
 
@@ -176,25 +136,6 @@ def write_to_file(out_file, content):
 
     with open(out_file, "wb") as f:
         f.write(content)
-
-
-async def _check_img(img_file, url, img_name, error_url_file, sep):
-    try:
-        _ = await read_img(img_file)
-    except Exception as e:
-        logger.error("{}: {}".format(img_name, e))
-        with open(error_url_file, "a") as f:
-            writer = csv.writer(f, delimiter=sep)
-            writer.writerow([url, img_name, e])
-
-
-async def read_img(img_file):
-    pil_img = Image.open(img_file).convert("RGB")
-    img = np.array(pil_img).astype(np.float32)
-    # (3, h, w) <- (h, w, 3)
-    img = img.transpose(2, 0, 1)
-
-    return img
 
 
 if __name__ == "__main__":

@@ -6,12 +6,10 @@ authors = ["hrsma2i <hrs.ma2i@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.6"
-pillow = "^6.2"
 asyncio = "^3.4"
 aiohttp = "^3.6"
 tqdm = "^4.41"
 pandas = "^0.25.3"
-numpy = "^1.18"
 python-json-logger = "^0.1.11"
 [tool.poetry.dev-dependencies]
 jupyter = "^1.0"
