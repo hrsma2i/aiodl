@@ -75,7 +75,9 @@ def main(
     else:
         out_names = df[1].tolist()
 
-    downloader = Downloader(out_dir=out_dir, num_requests=num_requests, timeout=timeout)
+    downloader = Downloader(
+        out_dir=out_dir, num_requests=num_requests, timeout=timeout, total=len(urls)
+    )
     coros = [
         downloader.download(url, out_name) for url, out_name in zip(urls, out_names)
     ]
@@ -85,12 +87,15 @@ def main(
 
 
 class Downloader:
-    def __init__(self, out_dir, num_requests, timeout):
+    def __init__(self, out_dir: Path, num_requests: int, timeout: int, total: int):
         self.out_dir = out_dir
         # avoid to many requests(coros) the same time.
         # limit them by setting semaphores (simultaneous requests)
         self.sem = asyncio.Semaphore(num_requests)
         self.timeout_ = aiohttp.ClientTimeout(total=timeout)
+        self.total = total
+
+        self.count = 0
 
     async def download(self, url, out_name):
         # this routine is protected by a semaphore
@@ -100,9 +105,20 @@ class Downloader:
 
                 self.write(self.out_dir / out_name, content)
 
-                logger.info({"out_name": out_name})
+                self.count += 1
+                logger.info(
+                    {"count": self.count, "total": self.total, "out_name": out_name}
+                )
             except Exception as e:
-                logger.error({"out_name": out_name, "error": e})
+                self.count += 1
+                logger.error(
+                    {
+                        "count": self.count,
+                        "total": self.total,
+                        "out_name": out_name,
+                        "error": e,
+                    }
+                )
 
     async def get(self, url, out_name, *args, **kwargs):
         async with aiohttp.ClientSession(raise_for_status=True) as session:
