@@ -60,7 +60,9 @@ def main(
     timeout: int = typer.Option(180, "-t", help="Timeout(sec)"),
     max_retry: int = typer.Option(3, "-m", help="Max retry"),
     add: bool = typer.Option(False, "-a", help="Add files to the existing directory."),
-    skip_exists: bool = typer.Option(False, "-s", help="If the file already exists, skip it."),
+    skip_exists: bool = typer.Option(
+        False, "-s", help="If the file already exists, skip it."
+    ),
 ):
     if not out_dir.is_dir():
         out_dir.mkdir(parents=True)
@@ -81,13 +83,14 @@ def main(
         out_names = df[1].tolist()
 
     if skip_exists:
+
         def exist_file(row):
             return not os.path.isfile(out_dir / row[1])
 
         try:
             urls, out_names = list(zip(*list(filter(exist_file, zip(urls, out_names)))))
         except ValueError:
-            logger.warning(f"There are no files to download.")
+            logger.warning("There are no files to download.")
             return
 
     downloader = Downloader(
