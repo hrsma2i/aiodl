@@ -148,7 +148,7 @@ class Downloader:
 
         with await self.sem:
             try:
-                content = await self.get(url, out_name, timeout=self.timeout_)
+                content = await self.get(url, timeout=self.timeout_)
 
                 self.write(self.out_dir / out_name, content)
 
@@ -172,7 +172,7 @@ class Downloader:
                 self._count += 1
                 logger.error(self._log_dict(out_name, extra={"error": e}))
 
-    async def get(self, url, out_name, *args, **kwargs):
+    async def get(self, url, *args, **kwargs):
         async with aiohttp.ClientSession(raise_for_status=True) as session:
             async with session.get(url, *args, **kwargs) as res:
                 return await res.content.read()
