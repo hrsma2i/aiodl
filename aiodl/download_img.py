@@ -1,9 +1,9 @@
-import os
-from time import time
 import asyncio
+import os
 from datetime import datetime, timedelta
-from logging import getLogger, INFO, StreamHandler
+from logging import INFO, StreamHandler, getLogger
 from pathlib import Path
+from time import time
 from typing import Dict
 
 import aiohttp
@@ -11,7 +11,6 @@ import pandas as pd
 import typer
 
 from aiodl.log_json_formatter import CustomJsonFormatter
-
 
 logger = getLogger(__name__)
 logger.setLevel(INFO)
