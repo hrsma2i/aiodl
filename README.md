@@ -1,5 +1,8 @@
 # aiodl - Async I/O Downloader
 
+:warning: | This repository is not maintained. Use https://github.com/hrsma2i/pycndl instead.
+:---: | :---
+
 ## Installation
 
 ```sh
